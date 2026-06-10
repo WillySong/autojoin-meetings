@@ -1,0 +1,35 @@
+{
+  "name": "autojoin-meetings",
+  "version": "0.1.0",
+  "description": "Chrome extension that pops a Join/Decline prompt across any page when a calendar meeting is about to start.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "dev:firefox": "wxt -b firefox",
+    "build": "wxt build",
+    "build:firefox": "wxt build -b firefox",
+    "zip": "wxt zip",
+    "preview": "vite --config vite.preview.config.ts",
+    "icons": "node tools/make-icons.cjs",
+    "compile": "tsc --noEmit",
+    "postinstall": "wxt prepare"
+  },
+  "dependencies": {
+    "@heroui/react": "3.1.0",
+    "@heroui/styles": "3.1.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.0",
+    "@vitejs/plugin-react": "6.0.2",
+    "@types/chrome": "0.1.43",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@wxt-dev/module-react": "1.2.2",
+    "tailwindcss": "4.3.0",
+    "typescript": "6.0.3",
+    "wxt": "0.20.26"
+  }
+}

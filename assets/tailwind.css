@@ -1,0 +1,20 @@
+@import "tailwindcss";
+@import "@heroui/styles";
+
+/* Tailwind v4 source detection: make sure utilities used in our TSX are generated
+   (the content script CSS is injected into a shadow root, so nothing is global). */
+@source "../entrypoints";
+@source "../components";
+
+/* Brand: override HeroUI's accent (used by primary buttons, focus rings, links)
+   to green so it matches the extension icon. Applied in every theme context,
+   including the `.dark` / [data-theme] wrapper used inside the overlay's shadow root. */
+:root,
+.light,
+.dark,
+[data-theme="light"],
+[data-theme="dark"] {
+  --accent: oklch(0.7329 0.1935 150.81);
+  --accent-foreground: oklch(0.21 0.006 285.89);
+  --accent-hover: oklch(0.6732 0.1835 150.81);
+}
