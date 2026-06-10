@@ -4,6 +4,9 @@ import { getActiveProvider } from '@/lib/providers';
 import { getAccount, getSettings, setAccount, setSettings } from '@/lib/storage';
 import { formatRelative } from '@/lib/meeting';
 import type { Account } from '@/lib/types';
+import { DebugPanel } from './DebugPanel';
+
+const DEBUG_CLICKS = 5;
 
 const provider = getActiveProvider();
 type Status = 'loading' | 'setup' | 'connect' | 'connected';
@@ -15,6 +18,19 @@ export default function App() {
   const [next, setNext] = useState('—');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [logoClicks, setLogoClicks] = useState(0);
+  const [debug, setDebug] = useState(false);
+
+  const handleLogoClick = () => {
+    setLogoClicks((c) => {
+      if (c + 1 >= DEBUG_CLICKS) {
+        setDebug(true);
+        return 0;
+      }
+      return c + 1;
+    });
+  };
+  const hint = !debug && logoClicks >= 2 ? `${DEBUG_CLICKS - logoClicks} more…` : '';
 
   const refresh = useCallback(async () => {
     if (!(await provider.isConfigured())) return setStatus('setup');
@@ -98,7 +114,7 @@ export default function App() {
 
   return (
     <div className="w-[340px] p-4">
-      <Header />
+      <Header onLogoClick={handleLogoClick} hint={hint} />
       {status === 'loading' && (
         <div className="flex justify-center py-10">
           <Spinner />
@@ -117,19 +133,26 @@ export default function App() {
           onDisconnect={disconnect}
         />
       )}
+      {debug && <DebugPanel />}
     </div>
   );
 }
 
-function Header() {
+function Header({ onLogoClick, hint }: { onLogoClick: () => void; hint?: string }) {
   return (
     <div className="mb-3 flex items-center gap-2">
-      <span className="flex size-5 items-center justify-center rounded-md bg-accent">
+      <button
+        type="button"
+        onClick={onLogoClick}
+        aria-label="Autojoin Meetings"
+        className="flex size-5 items-center justify-center rounded-md bg-accent"
+      >
         <svg viewBox="0 0 24 24" className="size-3 fill-accent-foreground" aria-hidden="true">
           <path d="M8 5v14l11-7z" />
         </svg>
-      </span>
+      </button>
       <h1 className="text-sm font-semibold">Autojoin Meetings</h1>
+      {hint && <span className="ml-auto text-[11px] text-muted">{hint}</span>}
     </div>
   );
 }

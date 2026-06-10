@@ -25,7 +25,7 @@ export function MeetingPromptCard({
   const inProgress = rel.startsWith('Started');
 
   return (
-    <Card className="relative w-[360px] max-w-[calc(100vw-40px)] shadow-overlay">
+    <Card className="relative w-full shadow-overlay">
       <CloseButton aria-label="Dismiss" onPress={onClose} className="absolute right-1.5 top-1.5" />
       <Card.Header>
         <div className="flex items-center gap-3 pr-6">

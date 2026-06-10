@@ -3,8 +3,7 @@ import { CONFIG, KEYS } from '@/lib/config';
 import { getActiveProvider } from '@/lib/providers';
 import {
   getSettings,
-  getActivePrompt,
-  setActivePrompt,
+  setActivePrompts,
   getHandled,
   markHandled,
   pruneHandled,
@@ -12,10 +11,10 @@ import {
 } from '@/lib/storage';
 
 // The brain of the extension. On a 1-minute alarm it asks the active provider
-// for upcoming meetings, decides whether one is inside its show window
-// (leadTime before start .. grace after start) and not already handled, and
-// writes that to storage.local `activePrompt`. Every page's content script
-// watches that key, so the overlay appears/disappears everywhere at once.
+// for upcoming meetings and writes every one inside its show window (leadTime
+// before start .. grace after start) that hasn't been handled to
+// storage.local `activePrompt` (an array). Every page's content script watches
+// that key, so the overlay stack appears/updates everywhere at once.
 
 export default defineBackground(() => {
   const ALARM = 'tick';
@@ -49,12 +48,12 @@ export default defineBackground(() => {
         switch (msg?.type) {
           case 'ACCEPT':
             await markHandled(msg.id, 'joined');
-            await setActivePrompt(null);
             if (msg.meetingUrl) await chrome.tabs.create({ url: msg.meetingUrl });
+            await tick(); // recompute the stack without this meeting
             return sendResponse({ ok: true });
           case 'DECLINE':
             await markHandled(msg.id, 'dismissed');
-            await setActivePrompt(null);
+            await tick(); // recompute the stack without this meeting
             return sendResponse({ ok: true });
           case 'CHECK_NOW':
             await chrome.storage.local.remove(KEYS.EVENT_CACHE); // force a refetch
@@ -80,10 +79,10 @@ export default defineBackground(() => {
     const settings = await getSettings();
     await pruneHandled(Date.now() - 24 * 60 * 60 * 1000);
 
-    if (!settings.enabled) return setActivePrompt(null);
+    if (!settings.enabled) return setActivePrompts([]);
 
     const provider = getActiveProvider();
-    if (!(await provider.isConfigured())) return setActivePrompt(null);
+    if (!(await provider.isConfigured())) return setActivePrompts([]);
 
     let connected = false;
     try {
@@ -91,7 +90,7 @@ export default defineBackground(() => {
     } catch {
       connected = false;
     }
-    if (!connected) return setActivePrompt(null);
+    if (!connected) return setActivePrompts([]);
 
     // Re-fetch periodically; otherwise re-use the cached list and re-check the
     // clock. The cache lives in storage so it survives worker shutdowns.
@@ -112,22 +111,11 @@ export default defineBackground(() => {
     const leadMs = settings.leadTimeMin * 60000;
     const graceMs = settings.graceMin * 60000;
 
-    // Soonest-starting meeting in its window and not yet handled wins.
-    let chosen: (typeof cache.events)[number] | null = null;
-    for (const ev of cache.events) {
-      if (handled[ev.id]) continue;
-      const showAt = ev.startTime - leadMs;
-      const hideAt = ev.startTime + graceMs;
-      if (now >= showAt && now <= hideAt && (!chosen || ev.startTime < chosen.startTime)) {
-        chosen = ev;
-      }
-    }
+    // Every meeting in its show window that hasn't been handled, soonest first.
+    const prompts = cache.events
+      .filter((ev) => !handled[ev.id] && now >= ev.startTime - leadMs && now <= ev.startTime + graceMs)
+      .sort((a, b) => a.startTime - b.startTime);
 
-    const current = await getActivePrompt();
-    if (chosen) {
-      if (!current || current.id !== chosen.id) await setActivePrompt(chosen);
-    } else if (current) {
-      await setActivePrompt(null);
-    }
+    await setActivePrompts(prompts);
   }
 });

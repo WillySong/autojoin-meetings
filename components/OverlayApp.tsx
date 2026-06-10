@@ -1,31 +1,27 @@
 import { useState } from 'react';
-import { MeetingPromptCard } from './MeetingPromptCard';
-import { useActivePrompt } from './useActivePrompt';
+import { OverlayStack } from './OverlayStack';
+import { useActivePrompts } from './useActivePrompts';
 import { useColorScheme } from './useColorScheme';
 import { useNow } from './useNow';
+import type { Meeting } from '@/lib/types';
 
 // Rendered inside the content script's shadow root on every page. Shows the
-// prompt card when the background worker sets `activePrompt`, nothing otherwise.
-// The `dark` / data-theme wrapper makes HeroUI's theme variables resolve inside
-// the shadow tree.
+// stack of meeting prompts the background worker has queued (or nothing). The
+// `dark`/`light` wrapper makes HeroUI's theme variables resolve in the shadow tree.
 export function OverlayApp() {
-  const prompt = useActivePrompt();
+  const prompts = useActivePrompts();
   const now = useNow(30000);
   const scheme = useColorScheme();
-  const [joining, setJoining] = useState(false);
+  const [joiningId, setJoiningId] = useState<string | null>(null);
 
-  if (!prompt) return null;
+  if (prompts.length === 0) return null;
 
-  const join = () => {
-    setJoining(true);
-    void chrome.runtime.sendMessage({
-      type: 'ACCEPT',
-      id: prompt.id,
-      meetingUrl: prompt.meetingUrl,
-    });
+  const join = (m: Meeting) => {
+    setJoiningId(m.id);
+    void chrome.runtime.sendMessage({ type: 'ACCEPT', id: m.id, meetingUrl: m.meetingUrl });
   };
-  const decline = () => {
-    void chrome.runtime.sendMessage({ type: 'DECLINE', id: prompt.id });
+  const decline = (m: Meeting) => {
+    void chrome.runtime.sendMessage({ type: 'DECLINE', id: m.id });
   };
 
   return (
@@ -34,13 +30,13 @@ export function OverlayApp() {
       data-theme={scheme}
       style={{ colorScheme: scheme }}
     >
-      <MeetingPromptCard
-        meeting={prompt}
+      <OverlayStack
+        meetings={prompts}
         now={now}
+        joiningId={joiningId}
         onJoin={join}
         onDecline={decline}
         onClose={decline}
-        joining={joining}
       />
     </div>
   );

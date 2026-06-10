@@ -4,7 +4,6 @@
 import { KEYS, CONFIG } from './config';
 import type { Account, Meeting, Settings } from './types';
 
-export interface ActivePrompt extends Meeting {}
 export type HandledStatus = 'joined' | 'dismissed';
 export interface HandledMap {
   [eventId: string]: { status: HandledStatus; at: number };
@@ -29,13 +28,13 @@ export async function setSettings(patch: Partial<Settings>): Promise<Settings> {
 
 // ---- Active prompt (local) -------------------------------------------------
 
-export async function getActivePrompt(): Promise<ActivePrompt | null> {
+export async function getActivePrompts(): Promise<Meeting[]> {
   const { [KEYS.ACTIVE_PROMPT]: p } = await chrome.storage.local.get(KEYS.ACTIVE_PROMPT);
-  return (p as ActivePrompt | undefined) ?? null;
+  return Array.isArray(p) ? (p as Meeting[]) : [];
 }
 
-export async function setActivePrompt(prompt: ActivePrompt | null): Promise<void> {
-  await chrome.storage.local.set({ [KEYS.ACTIVE_PROMPT]: prompt ?? null });
+export async function setActivePrompts(prompts: Meeting[]): Promise<void> {
+  await chrome.storage.local.set({ [KEYS.ACTIVE_PROMPT]: prompts });
 }
 
 // ---- Handled meetings (local) ----------------------------------------------
