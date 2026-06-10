@@ -6,21 +6,27 @@ import { CONFIG } from '@/lib/config';
 import type { Account } from '@/lib/types';
 
 const provider = getActiveProvider();
-const manifest = chrome.runtime.getManifest() as chrome.runtime.Manifest & {
-  oauth2?: { client_id?: string };
-};
-const CLIENT_ID = manifest.oauth2?.client_id ?? '(not set)';
+const FIELD =
+  'w-full rounded-field border border-field-border bg-field px-3 py-2 text-sm text-field-foreground placeholder:text-field-placeholder focus:outline-none focus:ring-2 focus:ring-focus';
 
 export default function App() {
-  const [configured] = useState(provider.isConfigured());
+  const [configured, setConfigured] = useState(false);
   const [connected, setConnected] = useState(false);
   const [account, setAccountState] = useState<Account | null>(null);
+
+  const [clientId, setClientId] = useState('');
+  const [clientSaved, setClientSaved] = useState(false);
+  const redirectUri = provider.getRedirectUri?.() ?? '';
+
   const [enabled, setEnabled] = useState<boolean>(CONFIG.DEFAULTS.enabled);
   const [lead, setLead] = useState<number>(CONFIG.DEFAULTS.leadTimeMin);
   const [grace, setGrace] = useState<number>(CONFIG.DEFAULTS.graceMin);
   const [saved, setSaved] = useState(false);
 
   const load = useCallback(async () => {
+    setClientId((await provider.getClientId?.()) ?? '');
+    setConfigured(await provider.isConfigured());
+
     let isConnected = false;
     try {
       isConnected = await provider.isConnected();
@@ -50,6 +56,14 @@ export default function App() {
     void load();
   }, [load]);
 
+  const saveClientId = async () => {
+    await provider.setClientId?.(clientId);
+    void chrome.runtime.sendMessage({ type: 'CHECK_NOW' });
+    setClientSaved(true);
+    setTimeout(() => setClientSaved(false), 1500);
+    await load();
+  };
+
   const connect = async () => {
     try {
       const acct = await provider.connect();
@@ -67,7 +81,7 @@ export default function App() {
     await load();
   };
 
-  const save = async () => {
+  const saveSettings = async () => {
     await setSettings({ enabled, leadTimeMin: lead, graceMin: grace });
     void chrome.runtime.sendMessage({ type: 'CHECK_NOW' });
     setSaved(true);
@@ -78,31 +92,48 @@ export default function App() {
     <main className="mx-auto max-w-xl px-5 py-8">
       <h1 className="mb-5 text-xl font-semibold">Autojoin Meetings</h1>
 
-      {!configured && (
-        <div className="mb-4 rounded-lg border border-danger/40 bg-danger-soft px-4 py-3 text-sm text-danger-soft-foreground">
-          No OAuth client ID is set yet. Follow the setup steps below, then reload the extension.
-        </div>
-      )}
-
       {/* Connection */}
       <Card className="mb-4">
         <Card.Header>
           <Card.Title className="text-base">Calendar connection</Card.Title>
         </Card.Header>
-        <Card.Content>
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Chip color={connected ? 'success' : 'default'}>
-                {connected ? 'Connected' : 'Not connected'}
-              </Chip>
-              {account && <span className="text-sm text-muted">{account.email}</span>}
+        <Card.Content className="flex flex-col gap-4">
+          <div className="flex items-center gap-2">
+            <Chip color={connected ? 'success' : 'default'}>
+              {connected ? 'Connected' : 'Not connected'}
+            </Chip>
+            {account && <span className="text-sm text-muted">{account.email}</span>}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-sm">Google OAuth client ID</Label>
+            <div className="flex gap-2">
+              <input
+                className={FIELD}
+                placeholder="1234567890-abc123.apps.googleusercontent.com"
+                value={clientId}
+                spellCheck={false}
+                autoComplete="off"
+                onChange={(e) => setClientId(e.target.value)}
+              />
+              <Button variant="secondary" onPress={saveClientId}>
+                {clientSaved ? 'Saved ✓' : 'Save'}
+              </Button>
             </div>
+            <p className="text-xs text-muted">
+              Don&rsquo;t have one yet? Follow the steps below — it takes a couple of minutes.
+            </p>
+          </div>
+
+          <div className="flex gap-2">
             {connected ? (
               <Button variant="ghost" onPress={disconnect}>
                 Disconnect
               </Button>
             ) : (
-              <Button onPress={connect}>Connect Google Calendar</Button>
+              <Button onPress={connect} isDisabled={!configured}>
+                Connect Google Calendar
+              </Button>
             )}
           </div>
         </Card.Content>
@@ -142,7 +173,7 @@ export default function App() {
           </NumberField>
 
           <div className="flex items-center gap-3">
-            <Button onPress={save}>Save settings</Button>
+            <Button onPress={saveSettings}>Save settings</Button>
             {saved && <span className="text-sm text-success">Saved ✓</span>}
           </div>
         </Card.Content>
@@ -151,13 +182,18 @@ export default function App() {
       {/* Setup guide */}
       <Card>
         <Card.Header>
-          <Card.Title className="text-base">One-time Google setup</Card.Title>
+          <Card.Title className="text-base">How to get an OAuth client ID</Card.Title>
           <Card.Description className="text-sm">
             The extension talks to your calendar directly from your browser, so you supply your own
-            free OAuth client ID.
+            free OAuth client ID. No billing, no server.
           </Card.Description>
         </Card.Header>
-        <Card.Content>
+        <Card.Content className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-sm">Authorized redirect URI (add this in step 5)</Label>
+            <CopyField value={redirectUri} />
+          </div>
+
           <ol className="flex list-decimal flex-col gap-2 pl-5 text-sm">
             <li>
               Open the{' '}
@@ -180,16 +216,20 @@ export default function App() {
               address under <strong>Test users</strong>.
             </li>
             <li>
-              In <strong>Credentials → Create credentials → OAuth client ID</strong>, choose type{' '}
-              <strong>Chrome Extension</strong> and paste this extension&rsquo;s ID:
-              <CopyId />
+              In <strong>Credentials → Create credentials → OAuth client ID</strong>, choose
+              application type <strong>Web application</strong>.
             </li>
             <li>
-              Put the generated <strong>Client ID</strong> into <code className="rounded bg-surface px-1.5 py-0.5 text-xs">wxt.config.ts</code>{' '}
-              under <code className="rounded bg-surface px-1.5 py-0.5 text-xs">manifest.oauth2.client_id</code>{' '}
-              (currently <span className="text-muted">{CLIENT_ID}</span>), then rebuild and reload.
+              Under <strong>Authorized redirect URIs</strong>, add the URI shown above, then{' '}
+              <strong>Create</strong>.
             </li>
-            <li>Click <strong>Connect Google Calendar</strong> above.</li>
+            <li>
+              Copy the generated <strong>Client ID</strong>, paste it into the field above, and
+              click <strong>Save</strong>.
+            </li>
+            <li>
+              Click <strong>Connect Google Calendar</strong> and approve the read-only access.
+            </li>
           </ol>
         </Card.Content>
       </Card>
@@ -197,24 +237,28 @@ export default function App() {
   );
 }
 
-function CopyId() {
-  const id = chrome.runtime.id;
+function CopyField({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <button
-      type="button"
-      className="mt-1.5 block rounded bg-surface px-2 py-1 font-mono text-xs text-accent hover:brightness-110"
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(id);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1000);
-        } catch {
-          /* clipboard blocked */
-        }
-      }}
-    >
-      {copied ? 'Copied ✓' : id}
-    </button>
+    <div className="flex gap-2">
+      <code className="flex-1 truncate rounded-field border border-field-border bg-field px-3 py-2 font-mono text-xs text-field-foreground">
+        {value || '—'}
+      </code>
+      <Button
+        variant="secondary"
+        isDisabled={!value}
+        onPress={async () => {
+          try {
+            await navigator.clipboard.writeText(value);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1000);
+          } catch {
+            /* clipboard blocked */
+          }
+        }}
+      >
+        {copied ? 'Copied ✓' : 'Copy'}
+      </Button>
+    </div>
   );
 }

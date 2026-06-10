@@ -1,4 +1,4 @@
-import { Button, Card } from '@heroui/react';
+import { Button, Card, CloseButton } from '@heroui/react';
 import { formatClock, formatRelative } from '@/lib/meeting';
 import type { Meeting } from '@/lib/types';
 
@@ -7,6 +7,7 @@ export interface MeetingPromptCardProps {
   now: number;
   onJoin: () => void;
   onDecline: () => void;
+  onClose: () => void;
   joining?: boolean;
 }
 
@@ -17,15 +18,17 @@ export function MeetingPromptCard({
   now,
   onJoin,
   onDecline,
+  onClose,
   joining,
 }: MeetingPromptCardProps) {
   const rel = formatRelative(meeting.startTime, now);
   const inProgress = rel.startsWith('Started');
 
   return (
-    <Card className="w-[360px] max-w-[calc(100vw-40px)] shadow-overlay">
+    <Card className="relative w-[360px] max-w-[calc(100vw-40px)] shadow-overlay">
+      <CloseButton aria-label="Dismiss" onPress={onClose} className="absolute right-1.5 top-1.5" />
       <Card.Header>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 pr-6">
           <span className="relative flex size-2.5 shrink-0">
             <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent opacity-60" />
             <span className="relative inline-flex size-2.5 rounded-full bg-accent" />

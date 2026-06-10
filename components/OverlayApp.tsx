@@ -39,6 +39,7 @@ export function OverlayApp() {
         now={now}
         onJoin={join}
         onDecline={decline}
+        onClose={decline}
         joining={joining}
       />
     </div>

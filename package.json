@@ -1,6 +1,6 @@
 {
   "name": "autojoin-meetings",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Chrome extension that pops a Join/Decline prompt across any page when a calendar meeting is about to start.",
   "private": true,
   "type": "module",

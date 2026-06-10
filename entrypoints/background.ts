@@ -83,7 +83,7 @@ export default defineBackground(() => {
     if (!settings.enabled) return setActivePrompt(null);
 
     const provider = getActiveProvider();
-    if (!provider.isConfigured()) return setActivePrompt(null);
+    if (!(await provider.isConfigured())) return setActivePrompt(null);
 
     let connected = false;
     try {

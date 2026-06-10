@@ -18,24 +18,34 @@ const mockEvents = {
   ],
 };
 
+const REDIRECT = 'https://previewextensionidmock00000000abcd.chromiumapp.org/';
+
 (globalThis as any).chrome = {
   runtime: {
     id: 'previewextensionidmock00000000abcd',
     lastError: undefined,
-    getManifest: () => ({
-      oauth2: { client_id: 'mock-client-id.apps.googleusercontent.com', scopes: [] },
-    }),
+    getManifest: () => ({}),
     openOptionsPage: () => {},
     sendMessage: async () => ({ ok: true }),
   },
   identity: {
-    getAuthToken: (_opts: unknown, cb: (t: string) => void) => cb('mock-token'),
-    removeCachedAuthToken: (_o: unknown, cb?: () => void) => cb && cb(),
-    clearAllCachedAuthTokens: (cb?: () => void) => cb && cb(),
+    getRedirectURL: () => REDIRECT,
+    launchWebAuthFlow: (_details: unknown, cb: (url: string) => void) =>
+      cb(`${REDIRECT}#access_token=mock-token&token_type=Bearer&expires_in=3600`),
   },
   storage: {
     local: { get: async () => ({}), set: async () => {}, remove: async () => {} },
-    sync: { get: async () => ({}), set: async () => {} },
+    sync: {
+      get: async () => ({
+        settings: {
+          enabled: true,
+          leadTimeMin: 1,
+          graceMin: 10,
+          googleClientId: 'mock-client-id.apps.googleusercontent.com',
+        },
+      }),
+      set: async () => {},
+    },
     onChanged: { addListener: () => {}, removeListener: () => {} },
   },
   tabs: { create: async () => {} },

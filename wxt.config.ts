@@ -11,14 +11,10 @@ export default defineConfig({
     name: 'Autojoin Meetings',
     description:
       'Pops a Join / Decline prompt across any web page when a calendar meeting is about to start.',
+    // The OAuth client id is supplied at runtime via the options page (no manifest
+    // oauth2 block needed), so it can be changed without a rebuild.
     permissions: ['identity', 'storage', 'alarms'],
-    host_permissions: ['https://www.googleapis.com/*'],
-    // Replace client_id with your own Google OAuth client (type "Chrome Extension").
-    // See the options page or README for the one-time setup.
-    oauth2: {
-      client_id: 'YOUR_OAUTH_CLIENT_ID.apps.googleusercontent.com',
-      scopes: ['https://www.googleapis.com/auth/calendar.readonly'],
-    },
+    host_permissions: ['https://www.googleapis.com/*', 'https://oauth2.googleapis.com/*'],
     icons: {
       16: '/icon/16.png',
       48: '/icon/48.png',

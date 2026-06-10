@@ -17,7 +17,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    if (!provider.isConfigured()) return setStatus('setup');
+    if (!(await provider.isConfigured())) return setStatus('setup');
 
     let connected = false;
     try {
